@@ -73,9 +73,10 @@ class PyLiveRadar:
         logger.debug("test")
         # Validate output_dir
         output_dir_path = Path(output_dir)
-        if not output_dir_path.exists() or not output_dir_path.is_dir():
-            logger.error("Invalid output directory: %s. Ensure it exists and is a directory.", output_dir)
-            return None
+        if not output_dir_path.exists():
+            raise FileNotFoundError(f"Output directory does not exist: {output_dir}")
+        if not output_dir_path.is_dir():
+            raise NotADirectoryError(f"Path is not a directory: {output_dir}")
 
         try:
             if not self._is_valid_nexrad_site(station):

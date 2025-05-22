@@ -140,10 +140,15 @@ class PyLiveRadar:
         radar_response.raise_for_status()
         temp_output_path = output_dir_path / f"{latest_file}.tmp"
         final_output_path = output_dir_path / latest_file
-        with temp_output_path.open("wb") as f:
-            for chunk in radar_response.iter_content(chunk_size=8192):
-                f.write(chunk)
-        temp_output_path.rename(final_output_path)
+        try:
+            with temp_output_path.open("wb") as f:
+                for chunk in radar_response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            temp_output_path.rename(final_output_path)
+        except Exception as e:
+            if temp_output_path.exists():
+                temp_output_path.unlink()
+            raise e
         return str(final_output_path)
 
     def fetch_radar_data(self, station: str, output_dir: str):
@@ -152,15 +157,21 @@ class PyLiveRadar:
         Unidata/UCAR L2 server.
 
         Fetches the most recent radar data for a valid NEXRAD station, saving the
-        file to the given output directory. Returns the local file path if successful,
-        or None if the station is invalid or an error occurs.
+        file to the given output directory. Returns the local file path if successful.
 
         Args:
             station: Radar station identifier (e.g., 'KTLX').
             output_dir: Directory where the downloaded radar data file will be saved.
 
         Returns:
-            The path to the downloaded radar data file, or None if the operation fails.
+            The path to the downloaded radar data file.
+
+        Raises:
+            FileNotFoundError: If the output directory does not exist.
+            NotADirectoryError: If the output path is not a directory.
+            ValueError: If the station is invalid or no valid radar data files are
+                found.
+            requests.exceptions.RequestException: If an HTTP request fails.
         """
         output_dir_path = self._validate_output_dir(output_dir)
         self._is_valid_nexrad_site(station)

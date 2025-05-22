@@ -1,6 +1,6 @@
 import os
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, mock_open
 from pyliveradar import PyLiveRadar
 
 class TestPyLiveRadar(unittest.TestCase):
@@ -39,6 +39,24 @@ class TestPyLiveRadar(unittest.TestCase):
         if os.path.exists(result):
             os.remove(result)
         os.rmdir(output_dir)
+
+    @patch("builtins.open", new_callable=mock_open, read_data='[{"id": "KTLX", "name": "Oklahoma City, OK"}]')
+    def test_is_valid_nexrad_site_valid(self, mock_file):
+        """Test is_valid_nexrad_site with a valid station."""
+        radar = PyLiveRadar()
+        self.assertTrue(radar._is_valid_nexrad_site("KTLX"))
+
+    @patch("builtins.open", new_callable=mock_open, read_data='[{"id": "KTLX", "name": "Oklahoma City, OK"}]')
+    def test_is_valid_nexrad_site_invalid(self, mock_file):
+        """Test is_valid_nexrad_site with an invalid station."""
+        radar = PyLiveRadar()
+        self.assertFalse(radar._is_valid_nexrad_site("INVALID"))
+
+    @patch("builtins.open", side_effect=FileNotFoundError)
+    def test_is_valid_nexrad_site_file_not_found(self, mock_file):
+        """Test is_valid_nexrad_site when the file is not found."""
+        radar = PyLiveRadar()
+        self.assertFalse(radar._is_valid_nexrad_site("KTLX"))
 
 if __name__ == "__main__":
     unittest.main()

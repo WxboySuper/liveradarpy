@@ -158,14 +158,16 @@ class PyLiveRadar:
                     logger.error("HTTP error occurred: %s", http_err)
             else:
                 logger.error("HTTP error occurred but response is None: %s", http_err)
+            raise
         except requests.exceptions.RequestException as req_err:
             logger.error("RequestException occurred: %s", req_err)
+            raise
         except ValueError as val_err:
             logger.error("ValueError occurred: %s", val_err)
+            raise
         except Exception as e:
             logger.error("Unexpected error occurred: %s", e)
-
-        return None
+            raise
 
 
 

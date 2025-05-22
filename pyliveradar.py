@@ -54,7 +54,7 @@ class PyLiveRadar:
         """
         if self._site_cache is None:
             sites = _load_sites()
-            self._site_cache = {site.get("id") for site in sites}
+            self._site_cache = {site.get("id") for site in sites if site.get("id") is not None}
         return self._site_cache
 
     def _is_valid_nexrad_site(self, station: str) -> bool:
@@ -95,13 +95,8 @@ class PyLiveRadar:
         if not output_dir_path.is_dir():
             raise NotADirectoryError(f"Path is not a directory: {output_dir}")
 
-        try:
-            if not self._is_valid_nexrad_site(station):
-                logger.error("Invalid NEXRAD site: %s", station)
-                raise ValueError(f"Invalid NEXRAD site: {station}")
-        except ValueError as e:
-            logger.error("ValueError occurred: %s", e)
-            raise
+        # Validate the station
+        self._is_valid_nexrad_site(station)
 
         base_url = "https://thredds.ucar.edu/thredds/fileServer/nexrad/level2"
         try:

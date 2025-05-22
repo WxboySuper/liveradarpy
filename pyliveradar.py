@@ -76,6 +76,7 @@ class PyLiveRadar:
         Raises:
             ValueError: If the station is invalid.
         """
+        station = station.upper()
         site_cache = self._get_site_cache()
         if station not in site_cache:
             logger.error("Invalid NEXRAD site: %s", station)
@@ -144,7 +145,7 @@ class PyLiveRadar:
             with temp_output_path.open("wb") as f:
                 for chunk in radar_response.iter_content(chunk_size=8192):
                     f.write(chunk)
-            temp_output_path.rename(final_output_path)
+            temp_output_path.replace(final_output_path)
         except Exception as e:
             if temp_output_path.exists():
                 temp_output_path.unlink()

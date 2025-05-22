@@ -23,11 +23,12 @@ class TestPyLiveRadar(unittest.TestCase):
         # Mock the response for the directory listing
         mock_response_dir = MagicMock()
         mock_response_dir.text = """<html><body><a href='file1.ar2v'>file1.ar2v</a><a href='file2.ar2v'>file2.ar2v</a></body></html>"""
-        mock_get.return_value = mock_response_dir
 
         # Mock the response for the file download
         mock_response_file = MagicMock()
         mock_response_file.iter_content = lambda chunk_size: [b"data"]
+
+        # Use side_effect to provide a sequence of responses
         mock_get.side_effect = [mock_response_dir, mock_response_file]
 
         # Create an instance of PyLiveRadar

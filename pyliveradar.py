@@ -95,7 +95,8 @@ class PyLiveRadar:
             logger.debug("Constructed URL: %s", url)
 
             # Fetch the directory listing
-            response = requests.get(url)
+            headers = {"User-Agent": "PyLiveRadar/1.0"}
+            response = requests.get(url, headers=headers, timeout=10)
             logger.debug("HTTP GET Response Status Code: %d", response.status_code)
             response.raise_for_status()
             logger.debug("Fetched directory listing successfully.")
@@ -124,7 +125,7 @@ class PyLiveRadar:
             logger.debug("Latest valid file URL: %s", file_url)
 
             # Download the radar data file
-            radar_response = requests.get(file_url, stream=True)
+            radar_response = requests.get(file_url, headers=headers, timeout=10, stream=True)
             logger.debug("HTTP GET Response Status Code for file: %d", radar_response.status_code)
             radar_response.raise_for_status()
             logger.debug("Downloaded radar data file successfully.")

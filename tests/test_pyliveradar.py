@@ -1,10 +1,21 @@
 import os
+import shutil
 import unittest
 from unittest.mock import patch, MagicMock, mock_open
 import requests
 from pyliveradar import PyLiveRadar
 
 class TestPyLiveRadar(unittest.TestCase):
+    def setUp(self):
+        """Set up the test environment."""
+        self.test_output_dir = "test_output"
+        if not os.path.exists(self.test_output_dir):
+            os.makedirs(self.test_output_dir)
+
+    def tearDown(self):
+        """Clean up the test environment."""
+        if os.path.exists(self.test_output_dir):
+            shutil.rmtree(self.test_output_dir)
 
     @patch("pyliveradar.requests.get")
     def test_fetch_radar_data(self, mock_get):

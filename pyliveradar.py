@@ -12,21 +12,35 @@ import os
 # Create a module-level logger
 logger = logging.getLogger(__name__)
 
-# Update the initialization of NEXRAD_SITES to handle missing or invalid nexrad_sites.json
 NEXRAD_SITES = None
-try:
-    json_path = os.path.join(os.path.dirname(__file__), "nexrad_sites.json")
-    with open(json_path, "r") as f:
-        NEXRAD_SITES = json.load(f)
-except FileNotFoundError:
-    logger.error("nexrad_sites.json file not found.")
-    raise FileNotFoundError("nexrad_sites.json file is required but was not found.")
-except json.JSONDecodeError:
-    logger.error("nexrad_sites.json contains invalid JSON.")
-    raise ValueError("nexrad_sites.json contains invalid JSON and cannot be loaded.")
-except Exception as e:
-    logger.error("Unexpected error loading NEXRAD sites: %s", e)
-    raise
+
+def _load_sites():
+    """
+    Load and parse the nexrad_sites.json file.
+
+    Returns:
+        list: Parsed JSON data from the nexrad_sites.json file.
+
+    Raises:
+        FileNotFoundError: If the nexrad_sites.json file is not found.
+        ValueError: If the JSON is invalid.
+    """
+    global NEXRAD_SITES
+    if NEXRAD_SITES is None:
+        try:
+            json_path = os.path.join(os.path.dirname(__file__), "nexrad_sites.json")
+            with open(json_path, "r") as f:
+                NEXRAD_SITES = json.load(f)
+        except FileNotFoundError:
+            logger.error("nexrad_sites.json file not found.")
+            raise FileNotFoundError("nexrad_sites.json file is required but was not found.")
+        except json.JSONDecodeError:
+            logger.error("nexrad_sites.json contains invalid JSON.")
+            raise ValueError("nexrad_sites.json contains invalid JSON and cannot be loaded.")
+        except Exception as e:
+            logger.error("Unexpected error loading NEXRAD sites: %s", e)
+            raise
+    return NEXRAD_SITES
 
 class PyLiveRadar:
     def __init__(self):
@@ -48,13 +62,8 @@ class PyLiveRadar:
         Raises:
             ValueError: If the station is invalid.
         """
-        if not NEXRAD_SITES:
-            logger.error("NEXRAD sites data is empty or not loaded.")
-            raise ValueError("NEXRAD sites data is empty or not loaded.")
-        if NEXRAD_SITES is None:
-            logger.error("NEXRAD sites data is not loaded (None).")
-            raise ValueError("NEXRAD sites data is not loaded (None).")
-        if not any(site.get("id") == station for site in NEXRAD_SITES):
+        sites = _load_sites()
+        if not any(site.get("id") == station for site in sites):
             logger.error("Invalid NEXRAD site: %s", station)
             raise ValueError(f"Invalid NEXRAD site: {station}")
         return True

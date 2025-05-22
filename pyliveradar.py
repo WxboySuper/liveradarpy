@@ -30,15 +30,19 @@ def _load_sites():
         from importlib import resources
         with resources.open_text(__package__, "nexrad_sites.json") as f:
             return json.load(f)
-    except FileNotFoundError:
+    except FileNotFoundError as e:
         logger.error("nexrad_sites.json file not found.")
-        raise FileNotFoundError("nexrad_sites.json file is required but was not found.")
-    except json.JSONDecodeError:
+        raise FileNotFoundError(
+            "nexrad_sites.json file is required but was not found."
+        ) from e
+    except json.JSONDecodeError as e:
         logger.error("nexrad_sites.json contains invalid JSON.")
-        raise ValueError("nexrad_sites.json contains invalid JSON.")
+        raise ValueError("nexrad_sites.json contains invalid JSON.") from e
     except Exception as e:
         logger.error("Unexpected error loading NEXRAD sites: %s", e)
-        raise
+        raise RuntimeError(
+            "Unexpected error occurred while loading NEXRAD sites."
+        ) from e
 
 
 class PyLiveRadar:
@@ -142,10 +146,16 @@ class PyLiveRadar:
                 for chunk in radar_response.iter_content(chunk_size=8192):
                     f.write(chunk)
             temp_output_path.replace(final_output_path)
-        except Exception:
+        except OSError as e:
             if temp_output_path.exists():
                 temp_output_path.unlink()
+            logger.error("File operation failed: %s", e)
             raise
+        except Exception as e:
+            if temp_output_path.exists():
+                temp_output_path.unlink()
+            logger.error("Unexpected error during file download: %s", e)
+            raise RuntimeError("Unexpected error occurred during file download.") from e
         return str(final_output_path)
 
     def fetch_radar_data(self, station: str, output_dir: str):

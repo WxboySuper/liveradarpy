@@ -12,18 +12,17 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 
 class PyLiveRadar:
     def __init__(self):
-        """Initialize the PyLiveRadar module."""
+        """
+        Initializes a PyLiveRadar instance.
+        """
         pass
 
     def _is_valid_nexrad_site(self, station: str) -> bool:
         """
-        Check if the given station is a valid NEXRAD site.
-
-        Args:
-            station (str): The radar station identifier (e.g., KTLX).
-
-        Returns:
-            bool: True if the station is valid, False otherwise.
+        Determines whether the specified station identifier corresponds to a valid NEXRAD site.
+        
+        Checks the provided station ID against entries in the local 'nexrad_sites.json' file.
+        Returns True if a matching site is found; otherwise, returns False. Logs an error and returns False if the file cannot be read or parsed.
         """
         try:
             with open("nexrad_sites.json", "r") as f:
@@ -35,14 +34,16 @@ class PyLiveRadar:
 
     def fetch_radar_data(self, station: str, output_dir: str):
         """
-        Fetch radar data for a given station from the Unidata/UCAR L2 server.
-
+        Downloads the latest radar data file for a specified station from the Unidata/UCAR L2 server.
+        
+        Fetches the most recent radar data for a valid NEXRAD station, saving the file to the given output directory. Returns the local file path if successful, or None if the station is invalid or an error occurs.
+        
         Args:
-            station (str): The radar station identifier (e.g., KTLX).
-            output_dir (str): The directory to save the downloaded radar data.
-
+            station: Radar station identifier (e.g., 'KTLX').
+            output_dir: Directory where the downloaded radar data file will be saved.
+        
         Returns:
-            str: The path to the downloaded radar data file.
+            The path to the downloaded radar data file, or None if the operation fails.
         """
         if not self._is_valid_nexrad_site(station):
             logging.error(f"Invalid NEXRAD site: {station}")

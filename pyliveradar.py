@@ -84,7 +84,7 @@ class PyLiveRadar:
             logging.debug("Downloaded radar data file successfully.")
 
             # Save the file locally
-            output_path = f"{output_dir}/{latest_file}"
+            output_path = os.path.join(output_dir, latest_file)
             with open(output_path, "wb") as f:
                 for chunk in radar_response.iter_content(chunk_size=8192):
                     f.write(chunk)

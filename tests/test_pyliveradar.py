@@ -70,7 +70,7 @@ class TestPyLiveRadar(unittest.TestCase):
         """Test fetch_radar_data with an invalid station ID."""
         radar = PyLiveRadar()
         with self.assertRaises(ValueError) as context:
-            radar.fetch_radar_data("INVALID", self.test_output_dir)
+            radar.fetch_radar_data("INVALID", "test_output")
         self.assertEqual(str(context.exception), "Invalid NEXRAD site: INVALID")
 
     @patch("pyliveradar.requests.get")

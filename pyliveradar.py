@@ -124,12 +124,15 @@ class PyLiveRadar:
             return str(output_path)  # Return the string representation of the path
 
         except requests.exceptions.HTTPError as http_err:
-            if http_err.response.status_code == 404:
-                logger.error("HTTP 404 Not Found: The requested resource could not be found.")
-            elif http_err.response.status_code == 500:
-                logger.error("HTTP 500 Internal Server Error: The server encountered an error.")
+            if http_err.response is not None:
+                if http_err.response.status_code == 404:
+                    logger.error("HTTP 404 Not Found: The requested resource could not be found.")
+                elif http_err.response.status_code == 500:
+                    logger.error("HTTP 500 Internal Server Error: The server encountered an error.")
+                else:
+                    logger.error("HTTP error occurred: %s", http_err)
             else:
-                logger.error("HTTP error occurred: %s", http_err)
+                logger.error("HTTP error occurred but response is None: %s", http_err)
         except requests.exceptions.RequestException as req_err:
             logger.error("RequestException occurred: %s", req_err)
         except ValueError as val_err:

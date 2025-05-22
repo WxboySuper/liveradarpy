@@ -3,4 +3,4 @@ requests
 arm-pyart
 rasterio
 xarray
-BeutifulSoup4
+beautifulsoup4

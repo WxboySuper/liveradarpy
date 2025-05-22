@@ -87,23 +87,21 @@ class TestPyLiveRadar(unittest.TestCase):
     @patch("pyliveradar.requests.get")
     def test_fetch_radar_data_empty_directory(self, mock_get):
         """Test fetch_radar_data with an empty directory listing."""
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.text = "<html></html>"
         radar = PyLiveRadar()
-        with patch("requests.get") as mock_get:
-            mock_get.return_value.status_code = 200
-            mock_get.return_value.text = "<html></html>"
-            with self.assertRaises(ValueError) as context:
-                radar.fetch_radar_data("KTLX", self.test_output_dir)
-            self.assertEqual(str(context.exception), "No radar data files found.")
+        with self.assertRaises(ValueError) as context:
+            radar.fetch_radar_data("KTLX", self.test_output_dir)
+        self.assertEqual(str(context.exception), "No radar data files found.")
 
     @patch("pyliveradar.requests.get")
     def test_fetch_radar_data_failed_download(self, mock_get):
         """Test fetch_radar_data with a failed file download."""
+        mock_get.side_effect = requests.exceptions.RequestException("Download failed")
         radar = PyLiveRadar()
-        with patch("requests.get") as mock_get:
-            mock_get.side_effect = requests.exceptions.RequestException("Download failed")
-            with self.assertRaises(requests.exceptions.RequestException) as context:
-                radar.fetch_radar_data("KTLX", self.test_output_dir)
-            self.assertEqual(str(context.exception), "Download failed")
+        with self.assertRaises(requests.exceptions.RequestException) as context:
+            radar.fetch_radar_data("KTLX", self.test_output_dir)
+        self.assertEqual(str(context.exception), "Download failed")
 
 if __name__ == "__main__":
     unittest.main()

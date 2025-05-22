@@ -27,8 +27,8 @@ def _load_sites():
         ValueError: If the JSON is invalid.
     """
     try:
-        json_path = os.path.join(os.path.dirname(__file__), "nexrad_sites.json")
-        with open(json_path, "r") as f:
+        from importlib import resources
+        with resources.open_text(__package__, "nexrad_sites.json") as f:
             return json.load(f)
     except FileNotFoundError:
         logger.error("nexrad_sites.json file not found.")

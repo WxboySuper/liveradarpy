@@ -56,7 +56,7 @@ class TestPyLiveRadar(unittest.TestCase):
         # Clean up
         if os.path.exists(result):
             os.remove(result)
-        os.rmdir(output_dir)
+        shutil.rmtree(output_dir)
 
     @patch("builtins.open", new_callable=mock_open, read_data='[{"id": "KTLX", "name": "Oklahoma City, OK"}]')
     def test_is_valid_nexrad_site_valid(self, mock_file):

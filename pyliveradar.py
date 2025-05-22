@@ -31,6 +31,7 @@ class PyLiveRadar:
         # Initialize instance variables
         self._site_cache = None
 
+    @staticmethod
     def _is_valid_nexrad_site(self, station: str) -> bool:
         """
         Check if the given station is a valid NEXRAD site.
@@ -63,11 +64,11 @@ class PyLiveRadar:
         # Validate output_dir
         output_dir_path = Path(output_dir)
         if not output_dir_path.exists() or not output_dir_path.is_dir():
-            logging.error(f"Invalid output directory: {output_dir}. Ensure it exists and is a directory.")
+            logging.error("Invalid output directory: %s. Ensure it exists and is a directory.", output_dir)
             return None
 
         if not self._is_valid_nexrad_site(station):
-            logging.error(f"Invalid NEXRAD site: {station}")
+            logging.error("Invalid NEXRAD site: %s", station)
             return None
 
         base_url = "https://thredds.ucar.edu/thredds/fileServer/nexrad/level2"
@@ -76,28 +77,28 @@ class PyLiveRadar:
             now = datetime.now(timezone.utc)  # Updated to use timezone-aware UTC
             date_path = now.strftime("%Y/%m/%d")
             url = f"{base_url}/{date_path}/{station}/"
-            logging.debug(f"Constructed URL: {url}")
+            logging.debug("Constructed URL: %s", url)
 
             # Fetch the directory listing
             response = requests.get(url)
-            logging.debug(f"HTTP GET Response Status Code: {response.status_code}")
+            logging.debug("HTTP GET Response Status Code: %d", response.status_code)
             response.raise_for_status()
             logging.debug("Fetched directory listing successfully.")
 
             # Parse the latest file (simplified for MVP)
             soup = BeautifulSoup(response.text, "html.parser")
             links = soup.find_all("a")
-            logging.debug(f"Found {len(links)} links in the directory listing.")
+            logging.debug("Found %d links in the directory listing.", len(links))
             if not links:
                 raise ValueError("No radar data files found.")
 
             # Debug log the raw directory listing
-            logging.debug(f"Raw directory listing: {[link['href'] for link in links]}")
+            logging.debug("Raw directory listing: %s", [link['href'] for link in links])
 
             # Filter links to include only valid radar data files
             valid_extensions = [".ar2v"]  # Updated to include .ar2v as the valid extension
             valid_links = [link['href'] for link in links if 'href' in link.attrs and any(link['href'].endswith(ext) for ext in valid_extensions)]
-            logging.debug(f"Filtered valid links: {valid_links}")
+            logging.debug("Filtered valid links: %s", valid_links)
 
             if not valid_links:
                 raise ValueError("No valid radar data files found.")
@@ -105,11 +106,11 @@ class PyLiveRadar:
             # Sort the valid links lexicographically and select the last one
             latest_file = sorted(valid_links)[-1]
             file_url = f"{url}{latest_file}"
-            logging.debug(f"Latest valid file URL: {file_url}")
+            logging.debug("Latest valid file URL: %s", file_url)
 
             # Download the radar data file
             radar_response = requests.get(file_url, stream=True)
-            logging.debug(f"HTTP GET Response Status Code for file: {radar_response.status_code}")
+            logging.debug("HTTP GET Response Status Code for file: %d", radar_response.status_code)
             radar_response.raise_for_status()
             logging.debug("Downloaded radar data file successfully.")
 
@@ -118,7 +119,7 @@ class PyLiveRadar:
             with output_path.open("wb") as f:  # Use Path's open method
                 for chunk in radar_response.iter_content(chunk_size=8192):
                     f.write(chunk)
-            logging.debug(f"Saved radar data file to: {output_path}")
+            logging.debug("Saved radar data file to: %s", output_path)
 
             return str(output_path)  # Return the string representation of the path
 
@@ -128,13 +129,13 @@ class PyLiveRadar:
             elif http_err.response.status_code == 500:
                 logging.error("HTTP 500 Internal Server Error: The server encountered an error.")
             else:
-                logging.error(f"HTTP error occurred: {http_err}")
+                logging.error("HTTP error occurred: %s", http_err)
         except requests.exceptions.RequestException as req_err:
-            logging.error(f"RequestException occurred: {req_err}")
+            logging.error("RequestException occurred: %s", req_err)
         except ValueError as val_err:
-            logging.error(f"ValueError occurred: {val_err}")
+            logging.error("ValueError occurred: %s", val_err)
         except Exception as e:
-            logging.error(f"Unexpected error occurred: {e}")
+            logging.error("Unexpected error occurred: %s", e)
 
         return None
 

@@ -63,15 +63,12 @@ class PyLiveRadar:
             }
         return self._site_cache
 
-    def _is_valid_nexrad_site(self, station: str) -> bool:
+    def _is_valid_nexrad_site(self, station: str) -> None:
         """
         Check if the given station is a valid NEXRAD site.
 
         Args:
             station (str): The radar station identifier (e.g., KTLX).
-
-        Returns:
-            bool: True if the station is valid, False otherwise.
 
         Raises:
             ValueError: If the station is invalid.
@@ -81,7 +78,6 @@ class PyLiveRadar:
         if station not in site_cache:
             logger.error("Invalid NEXRAD site: %s", station)
             raise ValueError(f"Invalid NEXRAD site: {station}")
-        return True
 
     @staticmethod
     def _validate_output_dir(output_dir: str) -> Path:
@@ -146,10 +142,10 @@ class PyLiveRadar:
                 for chunk in radar_response.iter_content(chunk_size=8192):
                     f.write(chunk)
             temp_output_path.replace(final_output_path)
-        except Exception as e:
+        except Exception:
             if temp_output_path.exists():
                 temp_output_path.unlink()
-            raise e
+            raise
         return str(final_output_path)
 
     def fetch_radar_data(self, station: str, output_dir: str):
@@ -165,7 +161,7 @@ class PyLiveRadar:
             output_dir: Directory where the downloaded radar data file will be saved.
 
         Returns:
-            The path to the downloaded radar data file.
+            str: The path to the downloaded radar data file.
 
         Raises:
             FileNotFoundError: If the output directory does not exist.

@@ -28,7 +28,8 @@ except Exception as e:
 class PyLiveRadar:
     def __init__(self):
         """Initialize the PyLiveRadar module."""
-        pass
+        # Initialize instance variables
+        self._site_cache = None
 
     def _is_valid_nexrad_site(self, station: str) -> bool:
         """

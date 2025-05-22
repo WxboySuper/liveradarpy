@@ -1,1 +1,6 @@
 # Add your project dependencies here
+requests
+arm-pyart
+rasterio
+xarray
+BeutifulSoup4

@@ -28,8 +28,11 @@ class PyLiveRadar:
             with open("nexrad_sites.json", "r") as f:
                 nexrad_sites = json.load(f)
             return any(site["id"] == station for site in nexrad_sites)
-        except Exception as e:
-            logging.error(f"Error reading NEXRAD sites: {e}")
+        except FileNotFoundError as fnf_err:
+            logging.error(f"File not found: {fnf_err}")
+            return False
+        except json.JSONDecodeError as json_err:
+            logging.error(f"JSON decode error: {json_err}")
             return False
 
     def fetch_radar_data(self, station: str, output_dir: str):

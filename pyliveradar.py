@@ -13,6 +13,7 @@ from functools import lru_cache
 # Create a module-level logger
 logger = logging.getLogger(__name__)
 
+
 @lru_cache(maxsize=None)
 def _load_sites():
     """
@@ -34,10 +35,11 @@ def _load_sites():
         raise FileNotFoundError("nexrad_sites.json file is required but was not found.")
     except json.JSONDecodeError:
         logger.error("nexrad_sites.json contains invalid JSON.")
-        raise ValueError("nexrad_sites.json contains invalid JSON and cannot be loaded.")
+        raise ValueError("nexrad_sites.json contains invalid JSON.")
     except Exception as e:
         logger.error("Unexpected error loading NEXRAD sites: %s", e)
         raise
+
 
 class PyLiveRadar:
     def __init__(self):
@@ -54,7 +56,11 @@ class PyLiveRadar:
         """
         if self._site_cache is None:
             sites = _load_sites()
-            self._site_cache = {site.get("id") for site in sites if site.get("id") is not None}
+            self._site_cache = {
+                site.get("id")
+                for site in sites
+                if site.get("id") is not None
+            }
         return self._site_cache
 
     def _is_valid_nexrad_site(self, station: str) -> bool:
@@ -76,115 +82,89 @@ class PyLiveRadar:
             raise ValueError(f"Invalid NEXRAD site: {station}")
         return True
 
-    def fetch_radar_data(self, station: str, output_dir: str):
-        """
-        Downloads the latest radar data file for a specified station from the Unidata/UCAR L2 server.
-        
-        Fetches the most recent radar data for a valid NEXRAD station, saving the file to the given output directory. Returns the local file path if successful, or None if the station is invalid or an error occurs.
-        
-        Args:
-            station: Radar station identifier (e.g., 'KTLX').
-            output_dir: Directory where the downloaded radar data file will be saved.
-        
-        Returns:
-            The path to the downloaded radar data file, or None if the operation fails.
-        """
-        logger.debug("test")
-        # Validate output_dir
+    @staticmethod
+    def _validate_output_dir(output_dir: str) -> Path:
         output_dir_path = Path(output_dir)
         if not output_dir_path.exists():
             raise FileNotFoundError(f"Output directory does not exist: {output_dir}")
         if not output_dir_path.is_dir():
             raise NotADirectoryError(f"Path is not a directory: {output_dir}")
+        return output_dir_path
 
-        # Validate the station
-        self._is_valid_nexrad_site(station)
-
+    @staticmethod
+    def _construct_station_url(station: str) -> str:
         base_url = "https://thredds.ucar.edu/thredds/fileServer/nexrad/level2"
-        try:
-            # Construct the URL for the radar station
-            now = datetime.now(timezone.utc)  # Updated to use timezone-aware UTC
-            date_path = now.strftime("%Y/%m/%d")
-            url = f"{base_url}/{date_path}/{station}/"
-            logger.debug("Constructed URL: %s", url)
+        now = datetime.now(timezone.utc)
+        date_path = now.strftime("%Y/%m/%d")
+        return f"{base_url}/{date_path}/{station}/"
 
-            # Fetch the directory listing
-            headers = {"User-Agent": "PyLiveRadar/1.0"}
-            response = requests.get(url, headers=headers, timeout=10)
-            logger.debug("HTTP GET Response Status Code: %d", response.status_code)
-            response.raise_for_status()
-            logger.debug("Fetched directory listing successfully.")
+    @staticmethod
+    def _fetch_and_filter_links(url: str) -> list:
+        headers = {"User-Agent": "PyLiveRadar/1.0"}
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        links = soup.find_all("a")
+        if not links:
+            raise ValueError("No radar data files found.")
+        sanitized_links = [
+            os.path.basename(link['href'])
+            for link in links
+            if 'href' in link.attrs
+        ]
+        valid_extensions = [".ar2v", ".ar2v.gz"]
+        valid_links = [
+            link
+            for link in sanitized_links
+            if any(link.endswith(ext) for ext in valid_extensions)
+        ]
+        if not valid_links:
+            raise ValueError("No valid radar data files found.")
+        return valid_links
 
-            # Parse the latest file (simplified for MVP)
-            soup = BeautifulSoup(response.text, "html.parser")
-            links = soup.find_all("a")
-            logger.debug("Found %d links in the directory listing.", len(links))
-            if not links:
-                raise ValueError("No radar data files found.")
+    @staticmethod
+    def _get_latest_file(valid_links: list) -> str:
+        return sorted(valid_links)[-1]
 
-            # Debug log the raw directory listing
-            logger.debug("Raw directory listing: %s", [link['href'] for link in links])
+    @staticmethod
+    def _download_and_save_file(
+        url: str,
+        latest_file: str,
+        output_dir_path: Path
+    ) -> str:
+        file_url = f"{url}{latest_file}"
+        headers = {"User-Agent": "PyLiveRadar/1.0"}
+        radar_response = requests.get(
+            file_url, headers=headers, timeout=10, stream=True
+        )
+        radar_response.raise_for_status()
+        temp_output_path = output_dir_path / f"{latest_file}.tmp"
+        final_output_path = output_dir_path / latest_file
+        with temp_output_path.open("wb") as f:
+            for chunk in radar_response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        temp_output_path.rename(final_output_path)
+        return str(final_output_path)
 
-            # Sanitize filenames to prevent path traversal
-            sanitized_links = [os.path.basename(link['href']) for link in links if 'href' in link.attrs]
+    def fetch_radar_data(self, station: str, output_dir: str):
+        """
+        Downloads the latest radar data file for a specified station from the
+        Unidata/UCAR L2 server.
 
-            # Update valid extensions to include '.ar2v.gz'
-            valid_extensions = [".ar2v", ".ar2v.gz"]
+        Fetches the most recent radar data for a valid NEXRAD station, saving the
+        file to the given output directory. Returns the local file path if successful,
+        or None if the station is invalid or an error occurs.
 
-            # Filter links to include only valid radar data files
-            valid_links = [link for link in sanitized_links if any(link.endswith(ext) for ext in valid_extensions)]
-            logger.debug("Filtered valid links: %s", valid_links)
+        Args:
+            station: Radar station identifier (e.g., 'KTLX').
+            output_dir: Directory where the downloaded radar data file will be saved.
 
-            if not valid_links:
-                raise ValueError("No valid radar data files found.")
-
-            # Sort the valid links lexicographically and select the last one
-            latest_file = sorted(valid_links)[-1]
-            file_url = f"{url}{latest_file}"
-            logger.debug("Latest valid file URL: %s", file_url)
-
-            # Download the radar data file
-            radar_response = requests.get(file_url, headers=headers, timeout=10, stream=True)
-            logger.debug("HTTP GET Response Status Code for file: %d", radar_response.status_code)
-            radar_response.raise_for_status()
-            logger.debug("Downloaded radar data file successfully.")
-
-            # Save the file locally using a temporary file
-            temp_output_path = output_dir_path / f"{latest_file}.tmp"  # Temporary file path
-            final_output_path = output_dir_path / latest_file  # Final output path
-            with temp_output_path.open("wb") as f:  # Use Path's open method
-                for chunk in radar_response.iter_content(chunk_size=8192):
-                    f.write(chunk)
-            logger.debug("Saved radar data to temporary file: %s", temp_output_path)
-
-            # Atomically move the temporary file to the final output path
-            temp_output_path.rename(final_output_path)
-            logger.debug("Renamed temporary file to final output path: %s", final_output_path)
-
-            return str(final_output_path)  # Return the string representation of the path
-
-        except requests.exceptions.HTTPError as http_err:
-            if http_err.response is not None:
-                if http_err.response.status_code == 404:
-                    logger.error("HTTP 404 Not Found: The requested resource could not be found.")
-                elif http_err.response.status_code == 500:
-                    logger.error("HTTP 500 Internal Server Error: The server encountered an error.")
-                else:
-                    logger.error("HTTP error occurred: %s", http_err)
-            else:
-                logger.error("HTTP error occurred but response is None: %s", http_err)
-            raise
-        except requests.exceptions.RequestException as req_err:
-            logger.error("RequestException occurred: %s", req_err)
-            raise
-        except ValueError as val_err:
-            logger.error("ValueError occurred: %s", val_err)
-            raise
-        except Exception as e:
-            logger.error("Unexpected error occurred: %s", e)
-            raise
-
-
-
-if __name__ == "__main__":
-    print('Placeholder for live radar data acquisition and updates.')
+        Returns:
+            The path to the downloaded radar data file, or None if the operation fails.
+        """
+        output_dir_path = self._validate_output_dir(output_dir)
+        self._is_valid_nexrad_site(station)
+        url = self._construct_station_url(station)
+        valid_links = self._fetch_and_filter_links(url)
+        latest_file = self._get_latest_file(valid_links)
+        return self._download_and_save_file(url, latest_file, output_dir_path)

@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timezone
 import logging
 import json
+from pathlib import Path
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -79,14 +80,18 @@ class PyLiveRadar:
             radar_response.raise_for_status()
             logging.debug("Downloaded radar data file successfully.")
 
+            # Convert output_dir to a Path object
+            output_dir = Path(output_dir)
+            output_dir.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
+
             # Save the file locally
-            output_path = f"{output_dir}/{latest_file}"
-            with open(output_path, "wb") as f:
+            output_path = output_dir / latest_file  # Use Path for file path construction
+            with output_path.open("wb") as f:  # Use Path's open method
                 for chunk in radar_response.iter_content(chunk_size=8192):
                     f.write(chunk)
             logging.debug(f"Saved radar data file to: {output_path}")
 
-            return output_path
+            return str(output_path)  # Return the string representation of the path
 
         except requests.exceptions.RequestException as req_err:
             logging.error(f"RequestException occurred: {req_err}")

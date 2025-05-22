@@ -8,12 +8,12 @@ import logging
 import json
 from pathlib import Path
 import os
+from functools import lru_cache
 
 # Create a module-level logger
 logger = logging.getLogger(__name__)
 
-NEXRAD_SITES = None
-
+@lru_cache(maxsize=None)
 def _load_sites():
     """
     Load and parse the nexrad_sites.json file.
@@ -25,22 +25,19 @@ def _load_sites():
         FileNotFoundError: If the nexrad_sites.json file is not found.
         ValueError: If the JSON is invalid.
     """
-    global NEXRAD_SITES
-    if NEXRAD_SITES is None:
-        try:
-            json_path = os.path.join(os.path.dirname(__file__), "nexrad_sites.json")
-            with open(json_path, "r") as f:
-                NEXRAD_SITES = json.load(f)
-        except FileNotFoundError:
-            logger.error("nexrad_sites.json file not found.")
-            raise FileNotFoundError("nexrad_sites.json file is required but was not found.")
-        except json.JSONDecodeError:
-            logger.error("nexrad_sites.json contains invalid JSON.")
-            raise ValueError("nexrad_sites.json contains invalid JSON and cannot be loaded.")
-        except Exception as e:
-            logger.error("Unexpected error loading NEXRAD sites: %s", e)
-            raise
-    return NEXRAD_SITES
+    try:
+        json_path = os.path.join(os.path.dirname(__file__), "nexrad_sites.json")
+        with open(json_path, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        logger.error("nexrad_sites.json file not found.")
+        raise FileNotFoundError("nexrad_sites.json file is required but was not found.")
+    except json.JSONDecodeError:
+        logger.error("nexrad_sites.json contains invalid JSON.")
+        raise ValueError("nexrad_sites.json contains invalid JSON and cannot be loaded.")
+    except Exception as e:
+        logger.error("Unexpected error loading NEXRAD sites: %s", e)
+        raise
 
 class PyLiveRadar:
     def __init__(self):

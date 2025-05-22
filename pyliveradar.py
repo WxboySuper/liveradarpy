@@ -138,7 +138,17 @@ class PyLiveRadar:
         radar_response = requests.get(
             file_url, headers=headers, timeout=10, stream=True
         )
-        radar_response.raise_for_status()
+        try:
+            radar_response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            logger.error("HTTP error occurred: %s", e)
+            raise requests.exceptions.HTTPError(
+                f"HTTP error occurred while accessing {file_url}: {e}") from e
+        except requests.exceptions.RequestException as e:
+            logger.error("Request error occurred: %s", e)
+            raise requests.exceptions.RequestException(
+                f"Request error occurred while accessing {file_url}: {e}") from e
+
         temp_output_path = output_dir_path / f"{latest_file}.tmp"
         final_output_path = output_dir_path / latest_file
         try:

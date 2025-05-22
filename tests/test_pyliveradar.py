@@ -1,22 +1,19 @@
 import os
-import shutil
 import unittest
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import patch, MagicMock, mock_open, ANY
 import requests
 from pyliveradar import PyLiveRadar
+import tempfile
 
 
 class TestPyLiveRadar(unittest.TestCase):
     def setUp(self):
         """Set up the test environment."""
-        self.test_output_dir = "test_output"
-        if not os.path.exists(self.test_output_dir):
-            os.makedirs(self.test_output_dir)
+        self.test_output_dir = tempfile.TemporaryDirectory()
 
     def tearDown(self):
         """Clean up the test environment."""
-        if os.path.exists(self.test_output_dir):
-            shutil.rmtree(self.test_output_dir)
+        self.test_output_dir.cleanup()
 
     @patch("pyliveradar.requests.get")
     def test_fetch_radar_data(self, mock_get):
@@ -25,8 +22,7 @@ class TestPyLiveRadar(unittest.TestCase):
         directory.
 
         Simulates HTTP responses for directory listing and file download, verifies that
-        the downloaded file exists, and cleans up created files and directories after
-        the test.
+        the downloaded file exists, and validates the requested URLs.
         """
         # Mock the response for the directory listing
         mock_response_dir = MagicMock()
@@ -49,10 +45,7 @@ class TestPyLiveRadar(unittest.TestCase):
 
         # Define test parameters
         station = "KTLX"
-        output_dir = "test_output"
-
-        # Ensure the output directory exists
-        os.makedirs(output_dir, exist_ok=True)
+        output_dir = self.test_output_dir.name
 
         # Call the function
         result = radar.fetch_radar_data(station, output_dir)
@@ -61,10 +54,14 @@ class TestPyLiveRadar(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertTrue(os.path.exists(result))
 
-        # Clean up
-        if os.path.exists(result):
-            os.remove(result)
-        shutil.rmtree(output_dir)
+        # Validate the requested URLs
+        # skipcq: PYL-W0212
+        expected_dir_url = radar._construct_station_url(station)
+        expected_file_url = f"{expected_dir_url}file2.ar2v"
+        mock_get.assert_any_call(expected_dir_url, headers=ANY, timeout=10)
+        mock_get.assert_any_call(
+            expected_file_url, headers=ANY, timeout=10, stream=True
+        )
 
     @patch(
         "builtins.open",

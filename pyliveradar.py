@@ -48,8 +48,19 @@ class PyLiveRadar:
         # Initialize instance variables
         self._site_cache = None
 
-    @staticmethod
-    def _is_valid_nexrad_site(station: str) -> bool:
+    def _get_site_cache(self):
+        """
+        Load and cache the set of valid NEXRAD site IDs.
+
+        Returns:
+            set: A set of valid NEXRAD site IDs.
+        """
+        if self._site_cache is None:
+            sites = _load_sites()
+            self._site_cache = {site.get("id") for site in sites}
+        return self._site_cache
+
+    def _is_valid_nexrad_site(self, station: str) -> bool:
         """
         Check if the given station is a valid NEXRAD site.
 
@@ -62,8 +73,8 @@ class PyLiveRadar:
         Raises:
             ValueError: If the station is invalid.
         """
-        sites = _load_sites()
-        if not any(site.get("id") == station for site in sites):
+        site_cache = self._get_site_cache()
+        if station not in site_cache:
             logger.error("Invalid NEXRAD site: %s", station)
             raise ValueError(f"Invalid NEXRAD site: {station}")
         return True

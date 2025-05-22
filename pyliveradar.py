@@ -5,6 +5,7 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timezone
 import logging
+import json
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -13,6 +14,24 @@ class PyLiveRadar:
     def __init__(self):
         """Initialize the PyLiveRadar module."""
         pass
+
+    def _is_valid_nexrad_site(self, station: str) -> bool:
+        """
+        Check if the given station is a valid NEXRAD site.
+
+        Args:
+            station (str): The radar station identifier (e.g., KTLX).
+
+        Returns:
+            bool: True if the station is valid, False otherwise.
+        """
+        try:
+            with open("nexrad_sites.json", "r") as f:
+                nexrad_sites = json.load(f)
+            return any(site["id"] == station for site in nexrad_sites)
+        except Exception as e:
+            logging.error(f"Error reading NEXRAD sites: {e}")
+            return False
 
     def fetch_radar_data(self, station: str, output_dir: str):
         """
@@ -25,6 +44,10 @@ class PyLiveRadar:
         Returns:
             str: The path to the downloaded radar data file.
         """
+        if not self._is_valid_nexrad_site(station):
+            logging.error(f"Invalid NEXRAD site: {station}")
+            return None
+
         base_url = "https://thredds.ucar.edu/thredds/fileServer/nexrad/level2"
         try:
             # Construct the URL for the radar station

@@ -78,14 +78,16 @@ class PyLiveRadar:
 
     def fetch_radar_data(self, station: str, output_dir: str):
         """
-        Fetch radar data for a given station from the Unidata/UCAR L2 server.
-
+        Downloads the latest radar data file for a specified station from the Unidata/UCAR L2 server.
+        
+        Fetches the most recent radar data for a valid NEXRAD station, saving the file to the given output directory. Returns the local file path if successful, or None if the station is invalid or an error occurs.
+        
         Args:
-            station (str): The radar station identifier (e.g., KTLX).
-            output_dir (str): The directory to save the downloaded radar data.
-
+            station: Radar station identifier (e.g., 'KTLX').
+            output_dir: Directory where the downloaded radar data file will be saved.
+        
         Returns:
-            str: The path to the downloaded radar data file.
+            The path to the downloaded radar data file, or None if the operation fails.
         """
         logger.debug("test")
         # Validate output_dir

@@ -19,7 +19,12 @@ class TestPyLiveRadar(unittest.TestCase):
 
     @patch("pyliveradar.requests.get")
     def test_fetch_radar_data(self, mock_get):
-        """Test the fetch_radar_data function."""
+        """
+        Tests that fetch_radar_data downloads a radar file and saves it to the specified directory.
+        
+        Simulates HTTP responses for directory listing and file download, verifies that the
+        downloaded file exists, and cleans up created files and directories after the test.
+        """
         # Mock the response for the directory listing
         mock_response_dir = MagicMock()
         mock_response_dir.text = """<html><body><a href='file1.ar2v'>file1.ar2v</a><a href='file2.ar2v'>file2.ar2v</a></body></html>"""
@@ -55,13 +60,17 @@ class TestPyLiveRadar(unittest.TestCase):
 
     @patch("builtins.open", new_callable=mock_open, read_data='[{"id": "KTLX", "name": "Oklahoma City, OK"}]')
     def test_is_valid_nexrad_site_valid(self, mock_file):
-        """Test is_valid_nexrad_site with a valid station."""
+        """
+        Tests that _is_valid_nexrad_site returns True for a valid NEXRAD station code.
+        """
         radar = PyLiveRadar()
         self.assertTrue(radar._is_valid_nexrad_site("KTLX"))
 
     @patch("builtins.open", new_callable=mock_open, read_data='[{"id": "KTLX", "name": "Oklahoma City, OK"}]')
     def test_is_valid_nexrad_site_invalid(self, mock_file):
-        """Test is_valid_nexrad_site with an invalid station."""
+        """
+        Tests that _is_valid_nexrad_site returns False for an invalid radar station code.
+        """
         radar = PyLiveRadar()
         with self.assertRaises(ValueError):
             radar._is_valid_nexrad_site("INVALID")

@@ -7,9 +7,23 @@ from datetime import datetime, timezone
 import logging
 import json
 from pathlib import Path
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Update the initialization of NEXRAD_SITES to handle missing or invalid nexrad_sites.json
+NEXRAD_SITES = None
+try:
+    json_path = os.path.join(os.path.dirname(__file__), "nexrad_sites.json")
+    with open(json_path, "r") as f:
+        NEXRAD_SITES = json.load(f)
+except FileNotFoundError:
+    logging.error("nexrad_sites.json file not found.")
+except json.JSONDecodeError:
+    logging.error("nexrad_sites.json contains invalid JSON.")
+except Exception as e:
+    logging.error(f"Unexpected error loading NEXRAD sites: {e}")
 
 class PyLiveRadar:
     def __init__(self):
@@ -26,13 +40,13 @@ class PyLiveRadar:
         Returns:
             bool: True if the station is valid, False otherwise.
         """
-        try:
-            with open("nexrad_sites.json", "r") as f:
-                nexrad_sites = json.load(f)
-            return any(site["id"] == station for site in nexrad_sites)
-        except Exception as e:
-            logging.error(f"Error reading NEXRAD sites: {e}")
+        if not NEXRAD_SITES:
+            logging.error("NEXRAD sites data is empty or not loaded.")
             return False
+        if NEXRAD_SITES is None:
+            logging.error("NEXRAD sites data is not loaded (None).")
+            return False
+        return any(site.get("id") == station for site in NEXRAD_SITES)
 
     def fetch_radar_data(self, station: str, output_dir: str):
         """
@@ -74,7 +88,7 @@ class PyLiveRadar:
             logging.debug(f"Raw directory listing: {[link['href'] for link in links]}")
 
             # Filter links to include only valid radar data files
-            valid_extensions = [".gz", ".bz2"]
+            valid_extensions = [".ar2v"]  # Updated to include .ar2v as the valid extension
             valid_links = [link['href'] for link in links if 'href' in link.attrs and any(link['href'].endswith(ext) for ext in valid_extensions)]
             logging.debug(f"Filtered valid links: {valid_links}")
 

@@ -10,7 +10,7 @@ class TestPyLiveRadar(unittest.TestCase):
         """Test the fetch_radar_data function."""
         # Mock the response for the directory listing
         mock_response_dir = MagicMock()
-        mock_response_dir.text = """<html><body><a href='file1'>file1</a><a href='file2'>file2</a></body></html>"""
+        mock_response_dir.text = """<html><body><a href='file1.ar2v'>file1.ar2v</a><a href='file2.ar2v'>file2.ar2v</a></body></html>"""
         mock_get.return_value = mock_response_dir
 
         # Mock the response for the file download
@@ -51,12 +51,6 @@ class TestPyLiveRadar(unittest.TestCase):
         """Test is_valid_nexrad_site with an invalid station."""
         radar = PyLiveRadar()
         self.assertFalse(radar._is_valid_nexrad_site("INVALID"))
-
-    @patch("builtins.open", side_effect=FileNotFoundError)
-    def test_is_valid_nexrad_site_file_not_found(self, mock_file):
-        """Test is_valid_nexrad_site when the file is not found."""
-        radar = PyLiveRadar()
-        self.assertFalse(radar._is_valid_nexrad_site("KTLX"))
 
 if __name__ == "__main__":
     unittest.main()

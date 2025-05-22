@@ -120,9 +120,14 @@ class PyLiveRadar:
             # Debug log the raw directory listing
             logger.debug("Raw directory listing: %s", [link['href'] for link in links])
 
+            # Sanitize filenames to prevent path traversal
+            sanitized_links = [os.path.basename(link['href']) for link in links if 'href' in link.attrs]
+
+            # Update valid extensions to include '.ar2v.gz'
+            valid_extensions = [".ar2v", ".ar2v.gz"]
+
             # Filter links to include only valid radar data files
-            valid_extensions = [".ar2v"]  # Updated to include .ar2v as the valid extension
-            valid_links = [link['href'] for link in links if 'href' in link.attrs and any(link['href'].endswith(ext) for ext in valid_extensions)]
+            valid_links = [link for link in sanitized_links if any(link.endswith(ext) for ext in valid_extensions)]
             logger.debug("Filtered valid links: %s", valid_links)
 
             if not valid_links:
@@ -139,14 +144,19 @@ class PyLiveRadar:
             radar_response.raise_for_status()
             logger.debug("Downloaded radar data file successfully.")
 
-            # Save the file locally
-            output_path = output_dir_path / latest_file  # Use Path for file path construction
-            with output_path.open("wb") as f:  # Use Path's open method
+            # Save the file locally using a temporary file
+            temp_output_path = output_dir_path / f"{latest_file}.tmp"  # Temporary file path
+            final_output_path = output_dir_path / latest_file  # Final output path
+            with temp_output_path.open("wb") as f:  # Use Path's open method
                 for chunk in radar_response.iter_content(chunk_size=8192):
                     f.write(chunk)
-            logger.debug("Saved radar data file to: %s", output_path)
+            logger.debug("Saved radar data to temporary file: %s", temp_output_path)
 
-            return str(output_path)  # Return the string representation of the path
+            # Atomically move the temporary file to the final output path
+            temp_output_path.rename(final_output_path)
+            logger.debug("Renamed temporary file to final output path: %s", final_output_path)
+
+            return str(final_output_path)  # Return the string representation of the path
 
         except requests.exceptions.HTTPError as http_err:
             if http_err.response is not None:

@@ -60,6 +60,12 @@ class PyLiveRadar:
         Returns:
             str: The path to the downloaded radar data file.
         """
+        # Validate output_dir
+        output_dir_path = Path(output_dir)
+        if not output_dir_path.exists() or not output_dir_path.is_dir():
+            logging.error(f"Invalid output directory: {output_dir}. Ensure it exists and is a directory.")
+            return None
+
         if not self._is_valid_nexrad_site(station):
             logging.error(f"Invalid NEXRAD site: {station}")
             return None
@@ -107,12 +113,8 @@ class PyLiveRadar:
             radar_response.raise_for_status()
             logging.debug("Downloaded radar data file successfully.")
 
-            # Convert output_dir to a Path object
-            output_dir = Path(output_dir)
-            output_dir.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
-
             # Save the file locally
-            output_path = output_dir / latest_file  # Use Path for file path construction
+            output_path = output_dir_path / latest_file  # Use Path for file path construction
             with output_path.open("wb") as f:  # Use Path's open method
                 for chunk in radar_response.iter_content(chunk_size=8192):
                     f.write(chunk)

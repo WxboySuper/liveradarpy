@@ -20,10 +20,13 @@ try:
         NEXRAD_SITES = json.load(f)
 except FileNotFoundError:
     logger.error("nexrad_sites.json file not found.")
+    raise FileNotFoundError("nexrad_sites.json file is required but was not found.")
 except json.JSONDecodeError:
     logger.error("nexrad_sites.json contains invalid JSON.")
+    raise ValueError("nexrad_sites.json contains invalid JSON and cannot be loaded.")
 except Exception as e:
     logger.error("Unexpected error loading NEXRAD sites: %s", e)
+    raise
 
 class PyLiveRadar:
     def __init__(self):
@@ -41,14 +44,20 @@ class PyLiveRadar:
 
         Returns:
             bool: True if the station is valid, False otherwise.
+
+        Raises:
+            ValueError: If the station is invalid.
         """
         if not NEXRAD_SITES:
             logger.error("NEXRAD sites data is empty or not loaded.")
-            return False
+            raise ValueError("NEXRAD sites data is empty or not loaded.")
         if NEXRAD_SITES is None:
             logger.error("NEXRAD sites data is not loaded (None).")
-            return False
-        return any(site.get("id") == station for site in NEXRAD_SITES)
+            raise ValueError("NEXRAD sites data is not loaded (None).")
+        if not any(site.get("id") == station for site in NEXRAD_SITES):
+            logger.error("Invalid NEXRAD site: %s", station)
+            raise ValueError(f"Invalid NEXRAD site: {station}")
+        return True
 
     def fetch_radar_data(self, station: str, output_dir: str):
         """
@@ -61,15 +70,20 @@ class PyLiveRadar:
         Returns:
             str: The path to the downloaded radar data file.
         """
+        logger.debug("test")
         # Validate output_dir
         output_dir_path = Path(output_dir)
         if not output_dir_path.exists() or not output_dir_path.is_dir():
             logger.error("Invalid output directory: %s. Ensure it exists and is a directory.", output_dir)
             return None
 
-        if not self._is_valid_nexrad_site(station):
-            logger.error("Invalid NEXRAD site: %s", station)
-            return None
+        try:
+            if not self._is_valid_nexrad_site(station):
+                logger.error("Invalid NEXRAD site: %s", station)
+                raise ValueError(f"Invalid NEXRAD site: {station}")
+        except ValueError as e:
+            logger.error("ValueError occurred: %s", e)
+            raise
 
         base_url = "https://thredds.ucar.edu/thredds/fileServer/nexrad/level2"
         try:

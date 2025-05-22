@@ -70,9 +70,21 @@ class PyLiveRadar:
             if not links:
                 raise ValueError("No radar data files found.")
 
-            latest_file = links[-1]['href']
+            # Debug log the raw directory listing
+            logging.debug(f"Raw directory listing: {[link['href'] for link in links]}")
+
+            # Filter links to include only valid radar data files
+            valid_extensions = [".gz", ".bz2"]
+            valid_links = [link['href'] for link in links if 'href' in link.attrs and any(link['href'].endswith(ext) for ext in valid_extensions)]
+            logging.debug(f"Filtered valid links: {valid_links}")
+
+            if not valid_links:
+                raise ValueError("No valid radar data files found.")
+
+            # Sort the valid links lexicographically and select the last one
+            latest_file = sorted(valid_links)[-1]
             file_url = f"{url}{latest_file}"
-            logging.debug(f"Latest file URL: {file_url}")
+            logging.debug(f"Latest valid file URL: {file_url}")
 
             # Download the radar data file
             radar_response = requests.get(file_url, stream=True)

@@ -44,7 +44,7 @@ def _load_sites():
                 json_path = os.path.join(module_dir, "nexrad_sites.json")
                 with open(json_path, 'r', encoding='utf-8') as f:
                     return json.load(f)
-    except (FileNotFoundError, OSError, PermissionError, UnicodeDecodeError) as e:
+    except (FileNotFoundError, OSError, UnicodeDecodeError) as e:
         logger.error("nexrad_sites.json file not found.")
         raise FileNotFoundError(
             "nexrad_sites.json file is required but was not found."

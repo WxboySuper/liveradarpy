@@ -35,9 +35,16 @@ def _load_sites():
                 return json.load(f)
         except (AttributeError, TypeError):
             # Fallback for older Python versions (3.9-3.11)
-            from importlib import resources
-            with resources.open_text("pyliveradar", "nexrad_sites.json") as f:
-                return json.load(f)
+            try:
+                from importlib import resources
+                with resources.open_text("pyliveradar", "nexrad_sites.json") as f:
+                    return json.load(f)
+            except (FileNotFoundError, ModuleNotFoundError, TypeError):
+                # Final fallback: use file system path relative to this module
+                module_dir = os.path.dirname(__file__)
+                json_path = os.path.join(module_dir, "nexrad_sites.json")
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
     except FileNotFoundError as e:
         logger.error("nexrad_sites.json file not found.")
         raise FileNotFoundError(

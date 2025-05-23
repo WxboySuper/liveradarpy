@@ -27,9 +27,22 @@ def _load_sites():
         ValueError: If the JSON is invalid.
     """
     try:
-        from importlib import resources
-        resource_path = resources.files("pyliveradar").joinpath("nexrad_sites.json")
-        with resource_path.open("r") as f:
+        # Try the modern approach first (Python 3.12+)
+        try:
+            from importlib import resources
+            resource_path = resources.files("pyliveradar").joinpath("nexrad_sites.json")
+            with resource_path.open("r") as f:
+                return json.load(f)
+        except (AttributeError, TypeError):
+            # Fallback for older Python versions (3.9-3.11)
+            from importlib import resources
+            with resources.open_text("pyliveradar", "nexrad_sites.json") as f:
+                return json.load(f)
+    except (ImportError, ModuleNotFoundError):
+        # Fallback to traditional file access for very old versions
+        import os
+        json_path = os.path.join(os.path.dirname(__file__), "nexrad_sites.json")
+        with open(json_path, "r") as f:
             return json.load(f)
     except FileNotFoundError as e:
         logger.error("nexrad_sites.json file not found.")

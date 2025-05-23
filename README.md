@@ -1,5 +1,8 @@
 # pyliveradar
 
+> \[!NOTE]
+> This package is still in development. v0.1 will release soon as a MVP build with a scaled down L2 radar process.
+
 `pyliveradar` is a Python module designed to handle live radar data acquisition and updates. It provides a reusable and modular approach to working with radar data streams.
 
 ## Features

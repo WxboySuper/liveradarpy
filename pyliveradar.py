@@ -28,7 +28,8 @@ def _load_sites():
     """
     try:
         from importlib import resources
-        with resources.open_text(__package__, "nexrad_sites.json") as f:
+        resource_path = resources.files("pyliveradar").joinpath("nexrad_sites.json")
+        with resource_path.open("r") as f:
             return json.load(f)
     except FileNotFoundError as e:
         logger.error("nexrad_sites.json file not found.")

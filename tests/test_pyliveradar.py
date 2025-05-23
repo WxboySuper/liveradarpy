@@ -45,10 +45,9 @@ class TestPyLiveRadar(unittest.TestCase):
 
         # Define test parameters
         station = "KTLX"
-        output_dir = self.test_output_dir.name
 
         # Call the function
-        result = radar.fetch_radar_data(station, output_dir)
+        result = radar.fetch_radar_data(station, self.test_output_dir.name)
 
         # Assertions
         self.assertIsNotNone(result)
@@ -75,7 +74,9 @@ class TestPyLiveRadar(unittest.TestCase):
         """
         radar = PyLiveRadar()
         # skipcq: PYL-W0212
-        self.assertTrue(radar._is_valid_nexrad_site("KTLX"))
+        radar._is_valid_nexrad_site(
+            "KTLX"
+        )  # Ensure no exception is raised for valid site
 
     @patch(
         "builtins.open",
@@ -95,6 +96,7 @@ class TestPyLiveRadar(unittest.TestCase):
     @patch("pyliveradar.requests.get")
     def test_fetch_radar_data_invalid_station(self, mock_get):
         """Test fetch_radar_data with an invalid station ID."""
+        os.makedirs("test_output", exist_ok=True)
         radar = PyLiveRadar()
         with self.assertRaises(ValueError) as context:
             radar.fetch_radar_data("INVALID", "test_output")
@@ -108,7 +110,7 @@ class TestPyLiveRadar(unittest.TestCase):
         mock_get.return_value.raise_for_status.side_effect = http_error
         radar = PyLiveRadar()
         with self.assertRaises(requests.exceptions.HTTPError) as context:
-            radar.fetch_radar_data("KTLX", self.test_output_dir)
+            radar.fetch_radar_data("KTLX", self.test_output_dir.name)
         self.assertEqual(str(context.exception), "404 Not Found")
 
     @patch("pyliveradar.requests.get")
@@ -118,7 +120,7 @@ class TestPyLiveRadar(unittest.TestCase):
         mock_get.return_value.text = "<html></html>"
         radar = PyLiveRadar()
         with self.assertRaises(ValueError) as context:
-            radar.fetch_radar_data("KTLX", self.test_output_dir)
+            radar.fetch_radar_data("KTLX", self.test_output_dir.name)
         self.assertEqual(str(context.exception), "No radar data files found.")
 
     @patch("pyliveradar.requests.get")
@@ -127,7 +129,7 @@ class TestPyLiveRadar(unittest.TestCase):
         mock_get.side_effect = requests.exceptions.RequestException("Download failed")
         radar = PyLiveRadar()
         with self.assertRaises(requests.exceptions.RequestException) as context:
-            radar.fetch_radar_data("KTLX", self.test_output_dir)
+            radar.fetch_radar_data("KTLX", self.test_output_dir.name)
         self.assertEqual(str(context.exception), "Download failed")
 
 

@@ -38,12 +38,6 @@ def _load_sites():
             from importlib import resources
             with resources.open_text("pyliveradar", "nexrad_sites.json") as f:
                 return json.load(f)
-    except (ImportError, ModuleNotFoundError):
-        # Fallback to traditional file access for very old versions
-        import os
-        json_path = os.path.join(os.path.dirname(__file__), "nexrad_sites.json")
-        with open(json_path, "r") as f:
-            return json.load(f)
     except FileNotFoundError as e:
         logger.error("nexrad_sites.json file not found.")
         raise FileNotFoundError(

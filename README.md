@@ -10,7 +10,7 @@
 ## Getting Started
 
 ### Prerequisites
-- Python 3.8 or higher
+- Python 3.9 or higher
 - Required extensions: Python Extension, Python Environments Extension
 
 ### Installation

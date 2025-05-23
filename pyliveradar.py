@@ -23,8 +23,7 @@ def _load_sites():
         list: Parsed JSON data from the nexrad_sites.json file.
 
     Raises:
-        FileNotFoundError: If the nexrad_sites.json file is not found.
-        ValueError: If the JSON is invalid.
+        FileNotFoundError: If the nexrad_sites.json file is not found.        ValueError: If the JSON is invalid.
     """
     try:
         # Try the modern approach first (Python 3.12+)
@@ -45,7 +44,7 @@ def _load_sites():
                 json_path = os.path.join(module_dir, "nexrad_sites.json")
                 with open(json_path, 'r', encoding='utf-8') as f:
                     return json.load(f)
-    except FileNotFoundError as e:
+    except (FileNotFoundError, OSError, PermissionError, UnicodeDecodeError) as e:
         logger.error("nexrad_sites.json file not found.")
         raise FileNotFoundError(
             "nexrad_sites.json file is required but was not found."

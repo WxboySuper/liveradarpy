@@ -154,7 +154,7 @@ class TestPyLiveRadar(unittest.TestCase):
         result = radar.process_radar_to_raster("test.ar2v", "output.tif")
 
         # Assertions
-        self.assertEqual(result, str(mock_path_instance))
+        self.assertEqual(result, str(mock_path.return_value))
         mock_pyart.io.read.assert_called_once()
         mock_pyart.map.grid_from_radars.assert_called_once()
         mock_rasterio.open.assert_called_once()

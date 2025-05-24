@@ -272,6 +272,24 @@ class PyLiveRadar:
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
+        # Validate grid_resolution
+        if not (isinstance(grid_resolution, (int, float)) and grid_resolution > 0):
+            raise ValueError(
+                f"grid_resolution must be a positive number, got {grid_resolution!r}"
+            )
+        # Validate grid_shape
+        if (
+            not isinstance(grid_shape, tuple)
+            or len(grid_shape) != 2
+            or not all(isinstance(x, int) and x > 0 for x in grid_shape)
+        ):
+            raise ValueError(
+                (
+                    f"grid_shape must be a tuple of two positive integers, "
+                    f"got {grid_shape!r}"
+                )
+            )
+
         try:
             # Read radar data using Py-ART
             logger.info("Reading radar data from: %s", radar_file_path)

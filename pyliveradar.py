@@ -268,7 +268,41 @@ class PyLiveRadar:
         return radar
 
     @staticmethod
-    def _create_grid(radar, field, grid_resolution, grid_shape):
+    def _create_grid(
+        radar,
+        field,
+        grid_resolution,
+        grid_shape,
+        h_factor=1.0,
+        nb_factor=1.0,
+        bsp=1.0,
+        min_radius=250.0,
+        weighting_function=None
+    ):
+        """
+        Create a Cartesian grid from radar data using Py-ART.
+
+        Args:
+            radar: Py-ART radar object.
+            field (str): Radar field to grid.
+            grid_resolution (float): Grid resolution in meters.
+            grid_shape (tuple): Grid dimensions (ny, nx).
+            h_factor (float, optional): Horizontal smoothing factor. Default is 1.0.
+                See Py-ART's grid_from_radars for details.
+            nb_factor (float, optional): Barnes distance weighting factor.
+                Default is 1.0.
+            bsp (float, optional): Barnes smoothing parameter. Default is 1.0.
+            min_radius (float, optional): Minimum radius for gridding (meters).
+                Default is 250.0.
+            weighting_function (callable, optional): Custom weighting function for
+                gridding. If None, uses Py-ART's default.
+
+        Returns:
+            tuple: (grid, max_range)
+        """
+        # The default values are chosen to provide reasonable smoothing and coverage
+        # for most NEXRAD Level II data. For advanced use cases, see:
+        # https://arm-doe.github.io/pyart/API/generated/pyart.map.grid_from_radars.html
         max_range = grid_resolution * max(grid_shape) / 2
         grid_limits = ((-max_range, max_range), (-max_range, max_range))
         grid = pyart.map.grid_from_radars(
@@ -277,10 +311,11 @@ class PyLiveRadar:
             grid_limits=grid_limits,
             fields=[field],
             gridding_algo='map_gates_to_grid',
-            h_factor=1.0,
-            nb_factor=1.0,
-            bsp=1.0,
-            min_radius=250.0
+            h_factor=h_factor,
+            nb_factor=nb_factor,
+            bsp=bsp,
+            min_radius=min_radius,
+            weighting_function=weighting_function
         )
         return grid, max_range
 
@@ -377,7 +412,12 @@ class PyLiveRadar:
         field: str = 'reflectivity',
         sweep: int = 0,
         grid_resolution: float = 1000.0,
-        grid_shape: tuple = (400, 400)
+        grid_shape: tuple = (400, 400),
+        h_factor: float = 1.0,
+        nb_factor: float = 1.0,
+        bsp: float = 1.0,
+        min_radius: float = 250.0,
+        weighting_function=None
     ):
         """
         Process radar data file using Py-ART and export to GeoTIFF raster format.
@@ -397,6 +437,15 @@ class PyLiveRadar:
                 Defaults to 1000.0.
             grid_shape (tuple, optional): Grid dimensions (ny, nx).
                 Defaults to (400, 400).
+            h_factor (float, optional): Horizontal smoothing factor for gridding.
+                Default is 1.0. See Py-ART's grid_from_radars for details.
+            nb_factor (float, optional): Barnes distance weighting factor.
+                Default is 1.0.
+            bsp (float, optional): Barnes smoothing parameter. Default is 1.0.
+            min_radius (float, optional): Minimum radius for gridding (meters).
+                Default is 250.0.
+            weighting_function (callable, optional): Custom weighting function for
+                gridding. If None, uses Py-ART's default.
 
         Returns:
             str: Path to the created GeoTIFF file.
@@ -412,7 +461,11 @@ class PyLiveRadar:
             >>> raster_file = radar.process_radar_to_raster(
             ...     radar_file,
             ...     './output/reflectivity.tif',
-            ...     field='reflectivity'
+            ...     field='reflectivity',
+            ...     h_factor=1.2,
+            ...     nb_factor=1.0,
+            ...     bsp=1.0,
+            ...     min_radius=300.0
             ... )
         """
         try:
@@ -421,7 +474,9 @@ class PyLiveRadar:
             PyLiveRadar._validate_grid_params(grid_resolution, grid_shape)
             radar = PyLiveRadar._read_and_validate_radar(radar_path, field, sweep)
             grid, max_range = PyLiveRadar._create_grid(
-                radar, field, grid_resolution, grid_shape
+                radar, field, grid_resolution, grid_shape,
+                h_factor=h_factor, nb_factor=nb_factor, bsp=bsp,
+                min_radius=min_radius, weighting_function=weighting_function
             )
             gridded_data = PyLiveRadar._extract_gridded_data(grid, field)
             transform, radar_lat, radar_lon = PyLiveRadar._calculate_geotransform(

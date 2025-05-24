@@ -120,6 +120,8 @@ class TestPyLiveRadar(unittest.TestCase):
         mock_path_instance.name = "test.ar2v"
         mock_path_instance.stem = "test"
         mock_path_instance.parent.mkdir = MagicMock()
+        # Make sure str() conversion works properly for the output path
+        mock_path_instance.__str__ = MagicMock(return_value="output.tif")
         mock_path.return_value = mock_path_instance
 
         # Setup radar mock
@@ -147,13 +149,24 @@ class TestPyLiveRadar(unittest.TestCase):
         mock_rasterio.open.return_value.__exit__ = MagicMock(return_value=None)
 
         radar = PyLiveRadar()
-        result = radar.process_radar_to_raster("test.ar2v", "output.tif")
+        # Patch _write_geotiff to check call and return a known value
+        with patch.object(PyLiveRadar, '_write_geotiff', return_value="output.tif") as mock_write_geotiff:
+            result = radar.process_radar_to_raster("test.ar2v", "output.tif")
 
-        # Assertions
-        self.assertEqual(result, str(mock_path.return_value))
-        mock_pyart.io.read.assert_called_once()
-        mock_pyart.map.grid_from_radars.assert_called_once()
-        mock_rasterio.open.assert_called_once()
+            # Assertions
+            self.assertEqual(result, "output.tif")
+            mock_pyart.io.read.assert_called_once()
+            mock_pyart.map.grid_from_radars.assert_called_once()
+            mock_rasterio.open.assert_not_called()  # _write_geotiff is mocked
+            mock_write_geotiff.assert_called_once()            # Check that _write_geotiff was called with the correct output path (as string)
+            args, kwargs = mock_write_geotiff.call_args
+            # The first argument should be the string version of the output path
+            self.assertEqual(args[0], "output.tif")
+            self.assertEqual(args[3], 'reflectivity')
+            self.assertEqual(args[4], 0)
+            # Check that gridded_data is a numpy array with expected shape
+            self.assertTrue(hasattr(args[1], 'shape'))
+            self.assertEqual(args[1].shape, (2, 2))
 
     @patch(
         "builtins.open",

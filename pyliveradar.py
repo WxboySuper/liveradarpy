@@ -226,9 +226,9 @@ class PyLiveRadar:
 
     @staticmethod
     def _prepare_output_path(output_path):
-        output_path = Path(output_path)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        return output_path
+        output_path_obj = Path(output_path)
+        output_path_obj.parent.mkdir(parents=True, exist_ok=True)
+        return str(output_path_obj)
 
     @staticmethod
     def _validate_grid_params(grid_resolution, grid_shape):
@@ -483,7 +483,7 @@ class PyLiveRadar:
                 radar, grid_shape, max_range
             )
             return PyLiveRadar._write_geotiff(
-                output_path,
+                str(output_path),
                 gridded_data,
                 transform,
                 field,

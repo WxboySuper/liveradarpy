@@ -353,9 +353,6 @@ class PyLiveRadar:
                 )
 
             logger.info("Successfully created GeoTIFF: %s", output_path)
-            # If output_path is a MagicMock (from test), return the string that was passed in
-            if hasattr(output_path, '_mock_wraps') or type(output_path).__name__ == 'MagicMock':
-                return "output.tif"
             return str(output_path)
 
         except (ValueError, FileNotFoundError):

@@ -104,7 +104,7 @@ class TestPyLiveRadar(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             radar.process_radar_to_raster(
                 "test.ar2v", "output.tif", field="invalid_field"
-            )
+                )
         self.assertIn("Field 'invalid_field' not available", str(context.exception))
 
     @patch("pyliveradar.pyart")
@@ -150,7 +150,9 @@ class TestPyLiveRadar(unittest.TestCase):
 
         radar = PyLiveRadar()
         # Patch _write_geotiff to check call and return a known value
-        with patch.object(PyLiveRadar, '_write_geotiff', return_value="output.tif") as mock_write_geotiff:
+        with patch.object(
+            PyLiveRadar, '_write_geotiff', return_value="output.tif"
+        ) as mock_write_geotiff:
             result = radar.process_radar_to_raster("test.ar2v", "output.tif")
 
             # Assertions
@@ -158,8 +160,9 @@ class TestPyLiveRadar(unittest.TestCase):
             mock_pyart.io.read.assert_called_once()
             mock_pyart.map.grid_from_radars.assert_called_once()
             mock_rasterio.open.assert_not_called()  # _write_geotiff is mocked
-            mock_write_geotiff.assert_called_once()            # Check that _write_geotiff was called with the correct output path (as string)
-            args, kwargs = mock_write_geotiff.call_args
+            # Check that _write_geotiff was called with correct output path
+            mock_write_geotiff.assert_called_once()
+            args, _ = mock_write_geotiff.call_args
             # The first argument should be the string version of the output path
             self.assertEqual(args[0], "output.tif")
             self.assertEqual(args[3], 'reflectivity')

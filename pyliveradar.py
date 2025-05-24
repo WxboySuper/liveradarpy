@@ -218,6 +218,159 @@ class PyLiveRadar:
         return self._download_and_save_file(url, latest_file, output_dir_path)
 
     @staticmethod
+    def _validate_input_file(radar_file_path):
+        radar_path = Path(radar_file_path)
+        if not radar_path.exists():
+            raise FileNotFoundError(f"Radar file not found: {radar_file_path}")
+        return radar_path
+
+    @staticmethod
+    def _prepare_output_path(output_path):
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        return output_path
+
+    @staticmethod
+    def _validate_grid_params(grid_resolution, grid_shape):
+        if not (isinstance(grid_resolution, (int, float)) and grid_resolution > 0):
+            raise ValueError(
+                f"grid_resolution must be a positive number, got {grid_resolution!r}"
+            )
+        if (
+            not isinstance(grid_shape, tuple)
+            or len(grid_shape) != 2
+            or not all(isinstance(x, int) and x > 0 for x in grid_shape)
+        ):
+            raise ValueError(
+                (
+                    f"grid_shape must be a tuple of two positive integers, "
+                    f"got {grid_shape!r}"
+                )
+            )
+
+    @staticmethod
+    def _read_and_validate_radar(radar_path, field, sweep):
+        logger.info("Reading radar data from: %s", radar_path)
+        radar = pyart.io.read(str(radar_path))
+        if field not in radar.fields:
+            available_fields = list(radar.fields.keys())
+            raise ValueError(
+                f"Field '{field}' not available in radar data. "
+                f"Available fields: {available_fields}"
+            )
+        if sweep >= radar.nsweeps:
+            raise ValueError(
+                (
+                    f"Sweep {sweep} not available. "
+                    f"Radar has {radar.nsweeps} sweeps (0-{radar.nsweeps-1})"
+                )
+            )
+        return radar
+
+    @staticmethod
+    def _create_grid(radar, field, grid_resolution, grid_shape):
+        max_range = grid_resolution * max(grid_shape) / 2
+        grid_limits = ((-max_range, max_range), (-max_range, max_range))
+        grid = pyart.map.grid_from_radars(
+            radar,
+            grid_shape=grid_shape,
+            grid_limits=grid_limits,
+            fields=[field],
+            gridding_algo='map_gates_to_grid',
+            h_factor=1.0,
+            nb_factor=1.0,
+            bsp=1.0,
+            min_radius=250.0
+        )
+        return grid, max_range
+
+    @staticmethod
+    def _calculate_geotransform(radar, grid_shape, max_range):
+        radar_lat = radar.latitude['data'][0]
+        radar_lon = radar.longitude['data'][0]
+        earth_radius = 6378137.0  # meters (WGS84)
+        meters_per_deg_lat = (2 * np.pi * earth_radius) / 360.0
+        meters_per_deg_lon = (
+            2 * np.pi * earth_radius * np.cos(np.deg2rad(radar_lat))
+        ) / 360.0
+        delta_lat = max_range / meters_per_deg_lat
+        delta_lon = max_range / meters_per_deg_lon
+        west = radar_lon - delta_lon
+        east = radar_lon + delta_lon
+        south = radar_lat - delta_lat
+        north = radar_lat + delta_lat
+        transform = from_bounds(
+            west, south, east, north,
+            grid_shape[1], grid_shape[0]
+        )
+        return transform, radar_lat, radar_lon
+
+    @staticmethod
+    def _extract_gridded_data(grid, field):
+        field_dict = grid.fields[field]
+        if 'data' not in field_dict:
+            logger.error("'data' key not found in grid.fields['%s'].", field)
+            raise RuntimeError(f"'data' key not found in grid.fields['{field}'].")
+        gridded_data = field_dict['data']
+        # Accept both numpy arrays and lists (for test mocks)
+        if isinstance(gridded_data, list):
+            if len(gridded_data) < 1:
+                logger.error("No data found in grid.fields['%s']['data'].", field)
+                raise RuntimeError(f"No data found in grid.fields['{field}']['data'].")
+            gridded_data = gridded_data[0]
+        elif hasattr(gridded_data, 'shape'):
+            if gridded_data.shape[0] < 1:
+                logger.error("No data found in grid.fields['%s']['data'].", field)
+                raise RuntimeError(f"No data found in grid.fields['{field}']['data'].")
+            gridded_data = gridded_data[0]
+        else:
+            logger.error(
+                "Unexpected type for grid.fields['%s']['data']: %s",
+                field, type(gridded_data)
+            )
+            raise RuntimeError(
+                f"Unexpected type for grid.fields['{field}']['data']: "
+                f"{type(gridded_data)}"
+            )
+        if hasattr(gridded_data, 'mask'):
+            gridded_data = gridded_data.filled(np.nan)
+        return gridded_data
+
+    @staticmethod
+    def _write_geotiff(
+        output_path, gridded_data, transform, field, sweep, radar_lat,
+        radar_lon, radar, grid_resolution, radar_path
+    ):
+        logger.info("Writing GeoTIFF to: %s", output_path)
+        with rasterio.open(
+            output_path,
+            'w',
+            driver='GTiff',
+            height=gridded_data.shape[0],
+            width=gridded_data.shape[1],
+            count=1,
+            dtype=gridded_data.dtype,
+            crs=CRS.from_epsg(4326),  # WGS84
+            transform=transform,
+            compress='lzw',
+            nodata=np.nan
+        ) as dst:
+            dst.write(gridded_data, 1)
+            dst.update_tags(
+                FIELD=field,
+                SWEEP=str(sweep),
+                RADAR_LAT=str(radar_lat),
+                RADAR_LON=str(radar_lon),
+                RADAR_NAME=radar.metadata.get('instrument_name', 'Unknown'),
+                SOURCE_FILE=str(radar_path.name),
+                GRID_RESOLUTION=str(grid_resolution),
+                PROCESSING_TIME=datetime.now(timezone.utc).isoformat(),
+                DESCRIPTION=f"Radar {field} data processed with PyLiveRadar"
+            )
+        logger.info("Successfully created GeoTIFF: %s", output_path)
+        return str(output_path)
+
+    @staticmethod
     def process_radar_to_raster(
         radar_file_path: str,
         output_path: str,
@@ -262,146 +415,19 @@ class PyLiveRadar:
             ...     field='reflectivity'
             ... )
         """
-
-        # --- Helper: Validate input file ---
-        def _validate_input_file(radar_file_path):
-            radar_path = Path(radar_file_path)
-            if not radar_path.exists():
-                raise FileNotFoundError(f"Radar file not found: {radar_file_path}")
-            return radar_path
-
-        # --- Helper: Validate output path ---
-        def _prepare_output_path(output_path):
-            output_path = Path(output_path)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            return output_path
-
-        # --- Helper: Validate grid parameters ---
-        def _validate_grid_params(grid_resolution, grid_shape):
-            if not (isinstance(grid_resolution, (int, float)) and grid_resolution > 0):
-                raise ValueError(
-                    (
-                        f"grid_resolution must be a positive number, "
-                        f"got {grid_resolution!r}"
-                    )
-                )
-            if (
-                not isinstance(grid_shape, tuple)
-                or len(grid_shape) != 2
-                or not all(isinstance(x, int) and x > 0 for x in grid_shape)
-            ):
-                raise ValueError(
-                    (
-                        f"grid_shape must be a tuple of two positive integers, "
-                        f"got {grid_shape!r}"
-                    )
-                )
-
-        # --- Helper: Read radar and validate field/sweep ---
-        def _read_and_validate_radar(radar_path, field, sweep):
-            logger.info("Reading radar data from: %s", radar_path)
-            radar = pyart.io.read(str(radar_path))
-            if field not in radar.fields:
-                available_fields = list(radar.fields.keys())
-                raise ValueError(
-                    f"Field '{field}' not available in radar data. "
-                    f"Available fields: {available_fields}"
-                )
-            if sweep >= radar.nsweeps:
-                raise ValueError(
-                    (
-                        f"Sweep {sweep} not available. "
-                        f"Radar has {radar.nsweeps} sweeps (0-{radar.nsweeps-1})"
-                    )
-                )
-            return radar
-
-        # --- Helper: Create grid ---
-        def _create_grid(radar, field, grid_resolution, grid_shape):
-            max_range = grid_resolution * max(grid_shape) / 2
-            grid_limits = ((-max_range, max_range), (-max_range, max_range))
-            grid = pyart.map.grid_from_radars(
-                radar,
-                grid_shape=grid_shape,
-                grid_limits=grid_limits,
-                fields=[field],
-                gridding_algo='map_gates_to_grid',
-                h_factor=1.0,
-                nb_factor=1.0,
-                bsp=1.0,
-                min_radius=250.0
-            )
-            return grid, max_range
-
-        # --- Helper: Calculate geotransform ---
-        def _calculate_geotransform(radar, grid_shape, max_range):
-            radar_lat = radar.latitude['data'][0]
-            radar_lon = radar.longitude['data'][0]
-            earth_radius = 6378137.0  # meters (WGS84)
-            meters_per_deg_lat = (2 * np.pi * earth_radius) / 360.0
-            meters_per_deg_lon = (
-                2 * np.pi * earth_radius * np.cos(np.deg2rad(radar_lat))
-            ) / 360.0
-            delta_lat = max_range / meters_per_deg_lat
-            delta_lon = max_range / meters_per_deg_lon
-            west = radar_lon - delta_lon
-            east = radar_lon + delta_lon
-            south = radar_lat - delta_lat
-            north = radar_lat + delta_lat
-            transform = from_bounds(
-                west, south, east, north,
-                grid_shape[1], grid_shape[0]
-            )
-            return transform, radar_lat, radar_lon
-
-        # --- Helper: Write GeoTIFF ---
-        def _write_geotiff(
-            output_path, gridded_data, transform, field, sweep, radar_lat,
-            radar_lon, radar, grid_resolution, radar_path
-        ):
-            logger.info("Writing GeoTIFF to: %s", output_path)
-            with rasterio.open(
-                output_path,
-                'w',
-                driver='GTiff',
-                height=gridded_data.shape[0],
-                width=gridded_data.shape[1],
-                count=1,
-                dtype=gridded_data.dtype,
-                crs=CRS.from_epsg(4326),  # WGS84
-                transform=transform,
-                compress='lzw',
-                nodata=np.nan
-            ) as dst:
-                dst.write(gridded_data, 1)
-                dst.update_tags(
-                    FIELD=field,
-                    SWEEP=str(sweep),
-                    RADAR_LAT=str(radar_lat),
-                    RADAR_LON=str(radar_lon),
-                    RADAR_NAME=radar.metadata.get('instrument_name', 'Unknown'),
-                    SOURCE_FILE=str(radar_path.name),
-                    GRID_RESOLUTION=str(grid_resolution),
-                    PROCESSING_TIME=datetime.now(timezone.utc).isoformat(),
-                    DESCRIPTION=f"Radar {field} data processed with PyLiveRadar"
-                )
-            logger.info("Successfully created GeoTIFF: %s", output_path)
-            return str(output_path)
-
-        # --- Main logic using helpers ---
         try:
-            radar_path = _validate_input_file(radar_file_path)
-            output_path = _prepare_output_path(output_path)
-            _validate_grid_params(grid_resolution, grid_shape)
-            radar = _read_and_validate_radar(radar_path, field, sweep)
-            grid, max_range = _create_grid(radar, field, grid_resolution, grid_shape)
-            gridded_data = grid.fields[field]['data'][0]  # First vertical level
-            if hasattr(gridded_data, 'mask'):
-                gridded_data = gridded_data.filled(np.nan)
-            transform, radar_lat, radar_lon = _calculate_geotransform(
+            radar_path = PyLiveRadar._validate_input_file(radar_file_path)
+            output_path = PyLiveRadar._prepare_output_path(output_path)
+            PyLiveRadar._validate_grid_params(grid_resolution, grid_shape)
+            radar = PyLiveRadar._read_and_validate_radar(radar_path, field, sweep)
+            grid, max_range = PyLiveRadar._create_grid(
+                radar, field, grid_resolution, grid_shape
+            )
+            gridded_data = PyLiveRadar._extract_gridded_data(grid, field)
+            transform, radar_lat, radar_lon = PyLiveRadar._calculate_geotransform(
                 radar, grid_shape, max_range
             )
-            return _write_geotiff(
+            return PyLiveRadar._write_geotiff(
                 output_path,
                 gridded_data,
                 transform,

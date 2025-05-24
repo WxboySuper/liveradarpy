@@ -110,9 +110,8 @@ class TestPyLiveRadar(unittest.TestCase):
     @patch("pyliveradar.pyart")
     @patch("pyliveradar.rasterio")
     @patch("pyliveradar.Path")
-    @patch("pyliveradar.np")
     def test_process_radar_to_raster_success(
-        self, mock_np, mock_path, mock_rasterio, mock_pyart
+        self, mock_path, mock_rasterio, mock_pyart
     ):
         """Test successful radar processing to GeoTIFF."""
         # Setup path mocks
@@ -139,9 +138,6 @@ class TestPyLiveRadar(unittest.TestCase):
         mock_grid_data.filled.return_value = np.array([[1, 2], [3, 4]])
         mock_grid.fields = {'reflectivity': {'data': [mock_grid_data]}}
         mock_pyart.map.grid_from_radars.return_value = mock_grid
-
-        # Setup numpy mock
-        mock_np.nan = float('nan')
 
         # Setup rasterio mock
         mock_rasterio_context = MagicMock()

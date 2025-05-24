@@ -315,10 +315,16 @@ class PyLiveRadar:
 
             # Calculate geospatial transform
             # Grid coordinates are in meters relative to radar location
-            west = radar_lon - (max_range / 111320)  # Rough conversion to degrees
-            east = radar_lon + (max_range / 111320)
-            south = radar_lat - (max_range / 111320)
-            north = radar_lat + (max_range / 111320)
+            # Use latitude-dependent meters per degree for longitude
+            earth_radius = 6378137.0  # meters (WGS84)
+            meters_per_deg_lat = (2 * np.pi * earth_radius) / 360.0
+            meters_per_deg_lon = (2 * np.pi * earth_radius * np.cos(np.deg2rad(radar_lat))) / 360.0
+            delta_lat = max_range / meters_per_deg_lat
+            delta_lon = max_range / meters_per_deg_lon
+            west = radar_lon - delta_lon
+            east = radar_lon + delta_lon
+            south = radar_lat - delta_lat
+            north = radar_lat + delta_lat
 
             transform = from_bounds(west, south, east, north, grid_shape[1], grid_shape[0])
 

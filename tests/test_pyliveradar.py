@@ -66,41 +66,54 @@ class TestPyLiveRadar(unittest.TestCase):
     @patch("pyliveradar.pyart")
     @patch("pyliveradar.rasterio")
     @patch("pyliveradar.Path")
-    def test_process_radar_to_raster_file_not_found(self, mock_path, mock_rasterio, mock_pyart):
+    def test_process_radar_to_raster_file_not_found(
+        self,
+        mock_path,
+        mock_rasterio,
+        mock_pyart
+    ):
         """Test process_radar_to_raster with non-existent radar file."""
         mock_path_instance = MagicMock()
         mock_path_instance.exists.return_value = False
         mock_path.return_value = mock_path_instance
-        
+
         radar = PyLiveRadar()
         with self.assertRaises(FileNotFoundError) as context:
             radar.process_radar_to_raster("nonexistent.ar2v", "output.tif")
-        self.assertIn("Radar file not found", str(context.exception))
+        self.assertIn(
+            "Radar file not found", str(context.exception)
+        )
 
     @patch("pyliveradar.pyart")
     @patch("pyliveradar.rasterio")
     @patch("pyliveradar.Path")
-    def test_process_radar_to_raster_invalid_field(self, mock_path, mock_rasterio, mock_pyart):
+    def test_process_radar_to_raster_invalid_field(
+        self, mock_path, mock_rasterio, mock_pyart
+    ):
         """Test process_radar_to_raster with invalid field name."""
         # Setup mocks
         mock_path_instance = MagicMock()
         mock_path_instance.exists.return_value = True
         mock_path.return_value = mock_path_instance
-        
+
         mock_radar = MagicMock()
         mock_radar.fields = {'reflectivity': {}, 'velocity': {}}
         mock_pyart.io.read.return_value = mock_radar
-        
+
         radar = PyLiveRadar()
         with self.assertRaises(ValueError) as context:
-            radar.process_radar_to_raster("test.ar2v", "output.tif", field="invalid_field")
+            radar.process_radar_to_raster(
+                "test.ar2v", "output.tif", field="invalid_field"
+            )
         self.assertIn("Field 'invalid_field' not available", str(context.exception))
 
     @patch("pyliveradar.pyart")
     @patch("pyliveradar.rasterio")
     @patch("pyliveradar.Path")
     @patch("pyliveradar.np")
-    def test_process_radar_to_raster_success(self, mock_np, mock_path, mock_rasterio, mock_pyart):
+    def test_process_radar_to_raster_success(
+        self, mock_np, mock_path, mock_rasterio, mock_pyart
+    ):
         """Test successful radar processing to GeoTIFF."""
         # Setup path mocks
         mock_path_instance = MagicMock()
@@ -109,7 +122,7 @@ class TestPyLiveRadar(unittest.TestCase):
         mock_path_instance.stem = "test"
         mock_path_instance.parent.mkdir = MagicMock()
         mock_path.return_value = mock_path_instance
-        
+
         # Setup radar mock
         mock_radar = MagicMock()
         mock_radar.fields = {'reflectivity': {}}
@@ -118,25 +131,28 @@ class TestPyLiveRadar(unittest.TestCase):
         mock_radar.longitude = {'data': [-97.0]}
         mock_radar.metadata = {'instrument_name': 'Test Radar'}
         mock_pyart.io.read.return_value = mock_radar
-        
+
         # Setup grid mock
         mock_grid = MagicMock()
         mock_grid_data = MagicMock()
-        mock_grid_data.filled.return_value = np.array([[1, 2], [3, 4]])  # Return numpy array
+        # Return numpy array
+        mock_grid_data.filled.return_value = np.array([[1, 2], [3, 4]])
         mock_grid.fields = {'reflectivity': {'data': [mock_grid_data]}}
         mock_pyart.map.grid_from_radars.return_value = mock_grid
-        
+
         # Setup numpy mock
         mock_np.nan = float('nan')
-        
+
         # Setup rasterio mock
         mock_rasterio_context = MagicMock()
-        mock_rasterio.open.return_value.__enter__ = MagicMock(return_value=mock_rasterio_context)
+        mock_rasterio.open.return_value.__enter__ = MagicMock(
+            return_value=mock_rasterio_context
+        )
         mock_rasterio.open.return_value.__exit__ = MagicMock(return_value=None)
-        
+
         radar = PyLiveRadar()
         result = radar.process_radar_to_raster("test.ar2v", "output.tif")
-        
+
         # Assertions
         self.assertEqual(result, str(mock_path_instance))
         mock_pyart.io.read.assert_called_once()

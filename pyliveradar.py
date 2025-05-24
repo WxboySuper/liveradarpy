@@ -217,9 +217,15 @@ class PyLiveRadar:
         latest_file = self._get_latest_file(valid_links)
         return self._download_and_save_file(url, latest_file, output_dir_path)
 
-    def process_radar_to_raster(self, radar_file_path: str, output_path: str,
-                                field: str = 'reflectivity', sweep: int = 0,
-                                grid_resolution: float = 1000.0, grid_shape: tuple = (400, 400)):
+    @staticmethod
+    def process_radar_to_raster(
+        radar_file_path: str,
+        output_path: str,
+        field: str = 'reflectivity',
+        sweep: int = 0,
+        grid_resolution: float = 1000.0,
+        grid_shape: tuple = (400, 400)
+    ):
         """
         Process radar data file using Py-ART and export to GeoTIFF raster format.
 
@@ -230,11 +236,14 @@ class PyLiveRadar:
             radar_file_path (str): Path to the radar data file (e.g., .ar2v file).
             output_path (str): Path where the output GeoTIFF file will be saved.
             field (str, optional): Radar field to process. Defaults to 'reflectivity'.
-                                 Common options: 'reflectivity', 'velocity',
-                                 'spectrum_width', 'differential_reflectivity'.
-            sweep (int, optional): Radar sweep number to process. Defaults to 0 (lowest tilt).
-            grid_resolution (float, optional): Grid resolution in meters. Defaults to 1000.0.
-            grid_shape (tuple, optional): Grid dimensions (ny, nx). Defaults to (400, 400).
+                Common options: 'reflectivity', 'velocity',
+                'spectrum_width', 'differential_reflectivity'.
+            sweep (int, optional): Radar sweep number to process.
+                Defaults to 0 (lowest tilt).
+            grid_resolution (float, optional): Grid resolution in meters.
+                Defaults to 1000.0.
+            grid_shape (tuple, optional): Grid dimensions (ny, nx).
+                Defaults to (400, 400).
 
         Returns:
             str: Path to the created GeoTIFF file.
@@ -279,7 +288,10 @@ class PyLiveRadar:
             # Validate sweep number
             if sweep >= radar.nsweeps:
                 raise ValueError(
-                    f"Sweep {sweep} not available. Radar has {radar.nsweeps} sweeps (0-{radar.nsweeps-1})"
+                    (
+                        f"Sweep {sweep} not available. "
+                        f"Radar has {radar.nsweeps} sweeps (0-{radar.nsweeps-1})"
+                    )
                 )
 
             # Get radar location
@@ -318,7 +330,9 @@ class PyLiveRadar:
             # Use latitude-dependent meters per degree for longitude
             earth_radius = 6378137.0  # meters (WGS84)
             meters_per_deg_lat = (2 * np.pi * earth_radius) / 360.0
-            meters_per_deg_lon = (2 * np.pi * earth_radius * np.cos(np.deg2rad(radar_lat))) / 360.0
+            meters_per_deg_lon = (
+                2 * np.pi * earth_radius * np.cos(np.deg2rad(radar_lat))
+            ) / 360.0
             delta_lat = max_range / meters_per_deg_lat
             delta_lon = max_range / meters_per_deg_lon
             west = radar_lon - delta_lon
@@ -326,7 +340,10 @@ class PyLiveRadar:
             south = radar_lat - delta_lat
             north = radar_lat + delta_lat
 
-            transform = from_bounds(west, south, east, north, grid_shape[1], grid_shape[0])
+            transform = from_bounds(
+                west, south, east, north,
+                grid_shape[1], grid_shape[0]
+            )
 
             # Write to GeoTIFF
             logger.info("Writing GeoTIFF to: %s", output_path)
@@ -367,9 +384,15 @@ class PyLiveRadar:
             logger.error("Failed to process radar data: %s", e)
             raise RuntimeError(f"Radar processing failed: {e}") from e
 
-    def fetch_and_process_radar(self, station: str, output_dir: str,
-                               field: str = 'reflectivity', sweep: int = 0,
-                               grid_resolution: float = 1000.0, grid_shape: tuple = (400, 400)):
+    def fetch_and_process_radar(
+            self,
+            station: str,
+            output_dir: str,
+            field: str = 'reflectivity',
+            sweep: int = 0,
+            grid_resolution: float = 1000.0,
+            grid_shape: tuple = (400, 400)
+    ):
         """
         Convenience method to fetch and process radar data in one step.
 
@@ -381,7 +404,8 @@ class PyLiveRadar:
             output_dir (str): Directory for output files.
             field (str, optional): Radar field to process. Defaults to 'reflectivity'.
             sweep (int, optional): Radar sweep number. Defaults to 0.
-            grid_resolution (float, optional): Grid resolution in meters. Defaults to 1000.0.
+            grid_resolution (float, optional): Grid resolution in meters.
+                Defaults to 1000.0.
             grid_shape (tuple, optional): Grid dimensions. Defaults to (400, 400).
 
         Returns:
@@ -394,7 +418,8 @@ class PyLiveRadar:
         Example:
             >>> radar = PyLiveRadar()
             >>> result = radar.fetch_and_process_radar('KTLX', './output')
-            >>> print(f"Raw: {result['raw_file']}, Processed: {result['processed_file']}")
+            >>> print(f"Raw: {result['raw_file']}, "
+            ...       f"Processed: {result['processed_file']}")
         """
         # Fetch the raw radar data
         raw_file = self.fetch_radar_data(station, output_dir)
